@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milk Management System - Billing</title>
-    <!-- jsPDF + html2canvas + SheetJS (Excel) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> <!-- [web:21] -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script> <!-- [web:27] -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> <!-- [web:26] -->
+    <title>Milk Management System</title>
+    <!-- Libraries for PDF / Image / Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> <!-- PDF [web:21] -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script> <!-- Image [web:27] -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> <!-- Excel [web:26] -->
     <style>
         *{margin:0;padding:0;box-sizing:border-box;}
         body{
@@ -24,7 +24,6 @@
             box-shadow:0 10px 30px rgba(0,0,0,0.2);
             overflow:hidden;
         }
-        /* LOGIN */
         .login-container{
             display:flex;
             align-items:center;
@@ -69,8 +68,7 @@
             font-size:15px;
         }
         input:focus{
-            outline:none;
-            border-color:#4CAF50;
+            outline:none;border-color:#4CAF50;
             box-shadow:0 0 0 3px rgba(76,175,80,0.12);
         }
         .btn{
@@ -93,9 +91,9 @@
         .btn-small{width:auto;font-size:12px;padding:6px 10px;margin:2px;}
         .link-btn{
             background:none;border:none;color:#2196F3;
-            cursor:pointer;font-size:13px;text-decoration:underline;padding:0;margin-top:5px;
+            cursor:pointer;font-size:13px;text-decoration:underline;
+            padding:0;margin-top:5px;
         }
-        /* DASHBOARDS */
         .dashboard{display:none;padding:20px;}
         .header{
             background:linear-gradient(135deg,#4CAF50,#45a049);
@@ -151,7 +149,7 @@
             gap:15px;
         }
         @media(min-width:900px){
-            .two-column{grid-template-columns:2fr 1.2fr;}
+            .two-column{grid-template-columns:1.1fr 2fr;}
         }
         .table-container{
             max-height:260px;
@@ -176,9 +174,27 @@
             position:sticky;top:0;z-index:5;
         }
         tr:hover{background:#f8f9ff;}
-        .clickable-name{color:#2196F3;cursor:pointer;text-decoration:underline;font-weight:500;}
         .hidden{display:none !important;}
-        /* MOBILE TABLE (card style) */
+        /* CUSTOMER LIST */
+        #customerList{
+            list-style:none;
+            max-height:260px;
+            overflow-y:auto;
+            padding:0;
+        }
+        #customerList li{
+            padding:8px 10px;
+            border-radius:6px;
+            margin-bottom:4px;
+            background:#fff;
+            box-shadow:0 2px 5px rgba(0,0,0,0.05);
+            cursor:pointer;
+            font-size:13px;
+        }
+        #customerList li:hover{background:#26cc34;}
+        #customerList .cust-id{font-weight:bold;color:#333;}
+        #customerList .cust-name{color:#555;margin-left:6px;}
+        /* MOBILE TABLE CARD STYLE */
         @media(max-width:768px){
             table,thead,tbody,th,td,tr{display:block;}
             thead tr{position:absolute;top:-9999px;left:-9999px;}
@@ -207,20 +223,22 @@
             }
         }
         /* BILL AREA */
-        #billContainer{
+        #billContainer,#customerBillContainer{
             background:#fff;
             padding:10px;
             border-radius:8px;
             box-shadow:0 3px 10px rgba(0,0,0,0.08);
+            font-size:13px;
         }
-        #billContainer h3{margin-bottom:5px;}
-        #billContainer p{font-size:13px;margin:2px 0;}
+        #billContainer h3,#customerBillContainer h3{margin-bottom:5px;}
+        #billContainer p,#customerBillContainer p{margin:2px 0;}
         ::-webkit-scrollbar{width:6px;}
         ::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:3px;}
         ::-webkit-scrollbar-track{background:#f1f1f1;}
     </style>
 </head>
 <body>
+<!-- LOGIN -->
 <div id="loginScreen" class="container">
     <div class="login-container">
         <div class="login-form">
@@ -272,13 +290,13 @@
         <div class="flex">
             <div style="flex:1;min-width:180px;">
                 <label>Milk Rate (₹/L)</label>
-                <input type="number" id="milkRate" step="0.01" placeholder="Rate">
+                <input type="number" id="milkRate" step="0.01">
                 <button class="btn btn-secondary btn-small" onclick="updateMilkRate()">Update</button>
                 <span id="currentRate" style="font-weight:600;color:#4CAF50;margin-left:6px;">₹60.00</span>
             </div>
-            <div style="flex:1;">
+            <div style="flex:1;min-width:180px;">
                 <label>Search Customer</label>
-                <input type="text" id="searchCustomer" placeholder="Name or ID" oninput="filterCustomers()">
+                <input type="text" id="searchCustomer" placeholder="Name or ID" oninput="filterCustomerList()">
             </div>
         </div>
     </div>
@@ -299,36 +317,65 @@
     </div>
 
     <div class="two-column">
-        <!-- LEFT: RECORDS TABLE -->
+        <!-- LEFT: CUSTOMER LIST -->
         <div class="section">
-            <h3>Records (click name)</h3>
-            <div class="table-container">
-                <table id="customersTable">
-                    <thead>
-                    <tr>
-                        <th>ID</th><th>Name</th><th>Date</th><th>Qty</th><th>Rate</th><th>Total</th><th>Paid</th><th>Bal</th><th>Act</th>
-                    </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+            <h3>Customer List</h3>
+            <p style="font-size:12px;color:#555;margin-bottom:6px;">Click a customer to view and bill.</p>
+            <ul id="customerList"></ul>
+
+            <!-- BILL HISTORY FOR SELECTED CUSTOMER -->
+            <div class="section" style="margin-top:10px;padding:10px;">
+                <h4 style="margin-bottom:6px;">Bill History (Selected Customer)</h4>
+                <div class="flex" style="margin-bottom:6px;">
+                    <button class="btn btn-danger btn-small" onclick="clearAllBillsForSelected()">Clear all bills (this customer)</button>
+                </div>
+                <div class="table-container">
+                    <table id="adminBillHistoryTable">
+                        <thead>
+                        <tr>
+                            <th>From</th><th>To</th><th>Qty</th><th>Total</th><th>Paid</th><th>Bal</th><th>Act</th>
+                        </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <!-- RIGHT: DETAIL + BILL -->
+        <!-- RIGHT: FULL DAILY + BILL -->
         <div class="section">
-            <h3>Customer Detail & Bill</h3>
-            <div id="noCustomerSelected">Select a customer name to view.</div>
+            <h3>Customer Records & Bill</h3>
+            <div id="noCustomerSelected">Select a customer from the list.</div>
             <div id="customerDetailPanel" class="hidden">
+                <!-- summary -->
                 <div class="stats">
-                    <div class="stat-card"><div class="stat-number" id="selCustName">-</div><div>Name</div></div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="selCustName">-</div>
+                        <div id="selCustIdLabel" style="font-size:12px;color:#666;">ID: -</div>
+                    </div>
                     <div class="stat-card"><div class="stat-number" id="selCustQty">0 L</div><div>Total Milk</div></div>
-                    <div class="stat-card"><div class="stat-number" id="selCustTotal">₹0</div><div>Total Amt</div></div>
+                    <div class="stat-card"><div class="stat-number" id="selCustTotal">₹0</div><div>Total Amount</div></div>
                     <div class="stat-card"><div class="stat-number" id="selCustBalance">₹0</div><div>Balance</div></div>
                 </div>
 
-                <!-- BILL GENERATION -->
+                <!-- daily records -->
                 <div class="section" style="padding:10px;margin-bottom:10px;">
-                    <h4 style="margin-bottom:8px;">Generate Bill (by date)</h4>
+                    <h4 style="margin-bottom:6px;">Daily Records</h4>
+                    <div class="table-container">
+                        <table id="selectedCustomerTable">
+                            <thead>
+                            <tr>
+                                <th>Date</th><th>Qty</th><th>Rate</th><th>Total</th><th>Paid</th><th>Balance</th><th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- bill range + generate -->
+                <div class="section" style="padding:10px;margin-bottom:10px;">
+                    <h4 style="margin-bottom:6px;">Generate or Update Bill (Date Range)</h4>
                     <div class="form-row">
                         <div>
                             <label>Start Date</label>
@@ -340,20 +387,19 @@
                         </div>
                         <div>
                             <label>&nbsp;</label>
-                            <button class="btn btn-secondary btn-small" onclick="generateBillForSelected()">Generate</button>
+                            <button class="btn btn-secondary btn-small" onclick="generateBillForSelected()">Generate / Update</button>
                         </div>
                     </div>
                     <div class="flex">
                         <button class="btn btn-small" onclick="downloadBillPDF('admin')">PDF</button>
-                        <button class="btn btn-small btn-secondary" onclick="downloadBillExcel('admin')">Excel</button>
+                        <button class="btn btn-small btn-secondary" onclick="downloadBillExcel()">Excel</button>
                         <button class="btn btn-small btn-danger" onclick="downloadBillImage('admin')">JPG</button>
                     </div>
                 </div>
 
-                <!-- BILL DISPLAY -->
+                <!-- current bill display -->
                 <div id="billContainer">
-                    <h3>Bill</h3>
-                    <p>No bill generated yet.</p>
+                    <p>No bill selected.</p>
                 </div>
             </div>
         </div>
@@ -370,6 +416,12 @@
         <div class="logout" onclick="logout()">Logout</div>
     </div>
 
+    <div class="section">
+        <h3>Your Info</h3>
+        <p><strong>Name:</strong> <span id="custNameLabel">-</span></p>
+        <p><strong>ID:</strong> <span id="custIdLabel">-</span></p>
+    </div>
+
     <div class="stats">
         <div class="stat-card"><div class="stat-number" id="custMilkQty">0 L</div><div>Total Milk</div></div>
         <div class="stat-card"><div class="stat-number" id="custRate">₹60</div><div>Current Rate</div></div>
@@ -378,11 +430,11 @@
     </div>
 
     <div class="section">
-        <h3>Your Records</h3>
+        <h3>Your Daily Records</h3>
         <div class="table-container">
             <table id="customerRecordsTable">
                 <thead>
-                <tr><th>Date</th><th>Qty</th><th>Rate</th><th>Total</th><th>Paid</th><th>Bal</th></tr>
+                <tr><th>Date</th><th>Qty</th><th>Rate</th><th>Total</th><th>Paid</th><th>Balance</th></tr>
                 </thead>
                 <tbody></tbody>
             </table>
@@ -390,24 +442,36 @@
     </div>
 
     <div class="section">
-        <h3>Your Generated Bill</h3>
+        <h3>Your Bills History</h3>
+        <div class="table-container">
+            <table id="customerBillHistoryTable">
+                <thead>
+                <tr><th>From</th><th>To</th><th>Qty</th><th>Total</th><th>Paid</th><th>Bal</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Selected Bill</h3>
         <div class="flex" style="margin-bottom:8px;">
             <button class="btn btn-small" onclick="downloadBillPDF('customer')">PDF</button>
-            <button class="btn btn-small btn-secondary" onclick="downloadBillExcel('customer')">Excel</button>
+            <button class="btn btn-small btn-secondary" onclick="downloadBillExcel()">Excel</button>
             <button class="btn btn-small btn-danger" onclick="downloadBillImage('customer')">JPG</button>
         </div>
         <div id="customerBillContainer">
-            <p>No bill generated yet by admin.</p>
+            <p>No bill selected.</p>
         </div>
     </div>
 </div>
 
 <script>
-    const defaultAdmin = { username:'admin', password:'admin123' };
-    const SECRET_CODE = '448888';
-    let adminData = JSON.parse(localStorage.getItem('adminData')) || defaultAdmin;
+    const defaultAdmin={username:'admin',password:'admin123'};
+    const SECRET_CODE='448888';
+    let adminData=JSON.parse(localStorage.getItem('adminData'))||defaultAdmin;
 
-    const demoCustomers = [
+    const demoCustomers=[
         {id:'CUST001',name:'Raj Kumar',password:'1111',records:[
                 {date:'2026-01-10',qty:25,rate:60,paid:1200},
                 {date:'2026-01-09',qty:20,rate:60,paid:0}
@@ -417,19 +481,21 @@
         ]}
     ];
 
-    let customers = JSON.parse(localStorage.getItem('customers')) || demoCustomers;
-    let milkRate = parseFloat(localStorage.getItem('milkRate')) || 60;
-    let currentRole = 'admin';
-    let currentUser = null;
-    let loggedInCustomerId = null;
-    let selectedCustomerIndex = null;
-    // last generated bill (for both admin and customer)
-    let lastBill = null;
+    let customers=JSON.parse(localStorage.getItem('customers'))||demoCustomers;
+    let milkRate=parseFloat(localStorage.getItem('milkRate'))||60;
+    let currentRole='admin';
+    let currentUser=null;
+    let loggedInCustomerId=null;
+    let selectedCustomerIndex=null;
+
+    // bills: array of {id,customerId,customerName,startDate,endDate,records,totalQty,totalAmount,totalPaid,balance}
+    let bills=JSON.parse(localStorage.getItem('bills'))||[];
+    let lastBill=null; // currently selected bill
 
     document.addEventListener('DOMContentLoaded',()=>{
         document.getElementById('loginForm').addEventListener('submit',handleLogin);
         updateCurrentRateDisplay();
-        renderAdminTable();
+        renderCustomerList();
         setTodayDates();
     });
 
@@ -439,6 +505,7 @@
         document.getElementById('custTodayDate').textContent='Today: '+s;
     }
 
+    // LOGIN
     function selectRole(ev,role){
         currentRole=role;
         document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));
@@ -479,36 +546,35 @@
         document.getElementById('loginScreen').style.display='none';
         document.getElementById('adminDashboard').style.display=role==='admin'?'block':'none';
         document.getElementById('customerDashboard').style.display=role==='customer'?'block':'none';
-        if(role==='admin'){renderAdminTable();clearSelectedCustomer();}
+        if(role==='admin'){
+            renderCustomerList();
+            clearSelectedCustomer();
+        }
     }
 
     function showCustomerDashboard(id){
         const c=customers.find(x=>x.id===id);
-        if(c){
-            updateCustomerStats(c);
-            renderCustomerRecords(c.records);
-            // show last bill if exists
-            if(lastBill && lastBill.customerId===id){
-                renderBillHTML(lastBill,'customerBillContainer');
-            }else{
-                document.getElementById('customerBillContainer').innerHTML='<p>No bill generated yet by admin.</p>';
-            }
-            showDashboard('customer');
-        }
+        if(!c)return;
+        document.getElementById('custNameLabel').textContent=c.name;
+        document.getElementById('custIdLabel').textContent=c.id;
+        updateCustomerStats(c);
+        renderCustomerRecords(c.records);
+        renderCustomerBills(id);
+        lastBill=null;
+        document.getElementById('customerBillContainer').innerHTML='<p>No bill selected.</p>';
+        showDashboard('customer');
     }
 
     function logout(){
-        currentUser=null;loggedInCustomerId=null;selectedCustomerIndex=null;
+        currentUser=null;loggedInCustomerId=null;selectedCustomerIndex=null;lastBill=null;
         document.getElementById('loginScreen').style.display='block';
         document.getElementById('adminDashboard').style.display='none';
         document.getElementById('customerDashboard').style.display='none';
         document.getElementById('loginForm').reset();
     }
 
-    function showAdminReset(){
-        document.getElementById('adminResetPanel').classList.toggle('hidden');
-    }
-
+    // ADMIN PASSWORD
+    function showAdminReset(){document.getElementById('adminResetPanel').classList.toggle('hidden');}
     function resetAdminPassword(){
         const s=document.getElementById('adminSecret').value;
         const np=document.getElementById('newAdminPass').value;
@@ -522,21 +588,21 @@
         document.getElementById('adminResetPanel').classList.add('hidden');
     }
 
+    // RATE
     function updateMilkRate(){
         const v=parseFloat(document.getElementById('milkRate').value);
         if(!v||v<=0){alert('Enter valid rate');return;}
         milkRate=v;
         localStorage.setItem('milkRate',milkRate.toString());
         updateCurrentRateDisplay();
-        renderAdminTable();
         alert('Milk rate updated');
     }
-
     function updateCurrentRateDisplay(){
         document.getElementById('currentRate').textContent='₹'+milkRate.toFixed(2);
         document.getElementById('custRate').textContent='₹'+milkRate.toFixed(2);
     }
 
+    // CUSTOMER CRUD
     function addCustomer(){
         const name=document.getElementById('newCustomerName').value.trim();
         const id=document.getElementById('newCustomerId').value.trim().toUpperCase();
@@ -545,7 +611,7 @@
         if(customers.find(c=>c.id===id)){alert('ID already exists');return;}
         const today=new Date().toISOString().split('T')[0];
         customers.push({id,name,password:pass,records:[{date:today,qty:0,rate:milkRate,paid:0}]});
-        saveCustomers();renderAdminTable();
+        saveCustomers();renderCustomerList();
         document.getElementById('newCustomerName').value='';
         document.getElementById('newCustomerId').value='';
         document.getElementById('newCustomerPass').value='';
@@ -561,84 +627,101 @@
         c.password=pass;saveCustomers();alert('Password updated');
     }
 
-    function renderAdminTable(){
-        const tbody=document.querySelector('#customersTable tbody');
-        tbody.innerHTML='';
-        customers.forEach((c,ci)=>{
-            c.records.forEach((r,ri)=>{
-                const total=r.qty*r.rate;
-                const bal=total-r.paid;
-                const row=tbody.insertRow();
-                row.innerHTML=`
-<td data-label="ID">${c.id}</td>
-<td data-label="Name"><span class="clickable-name" onclick="showFullCustomer(${ci})">${c.name}</span></td>
-<td data-label="Date">${r.date}</td>
-<td data-label="Qty"><input type="number" value="${r.qty}" min="0" step="0.1" style="width:70px;" onchange="updateQty(${ci},${ri},this.value)"></td>
-<td data-label="Rate">₹${r.rate.toFixed(2)}</td>
-<td data-label="Total">₹${total.toFixed(2)}</td>
-<td data-label="Paid"><input type="number" value="${r.paid}" min="0" step="0.01" style="width:70px;" onchange="updatePaid(${ci},${ri},this.value)"></td>
-<td data-label="Bal">₹${bal.toFixed(2)}</td>
-<td data-label="Act">
-<button class="btn btn-secondary btn-small" onclick="addRecord(${ci})">+</button>
-<button class="btn btn-danger btn-small" onclick="deleteRecord(${ci},${ri})">X</button>
-</td>`;
-            });
+    // CUSTOMER LIST
+    function renderCustomerList(){
+        const ul=document.getElementById('customerList');
+        ul.innerHTML='';
+        customers.forEach((c,idx)=>{
+            const li=document.createElement('li');
+            li.innerHTML=`<span class="cust-id">${c.id}</span><span class="cust-name">${c.name}</span>`;
+            li.onclick=()=>showFullCustomer(idx);
+            ul.appendChild(li);
         });
-        filterCustomers();
+        filterCustomerList();
     }
 
-    function updateQty(ci,ri,val){
-        customers[ci].records[ri].qty=parseFloat(val)||0;
-        saveCustomers();renderAdminTable();
-        if(selectedCustomerIndex===ci)showFullCustomer(ci);
-    }
-    function updatePaid(ci,ri,val){
-        customers[ci].records[ri].paid=parseFloat(val)||0;
-        saveCustomers();renderAdminTable();
-        if(selectedCustomerIndex===ci)showFullCustomer(ci);
-    }
-    function addRecord(ci){
-        const today=new Date().toISOString().split('T')[0];
-        customers[ci].records.push({date:today,qty:0,rate:milkRate,paid:0});
-        saveCustomers();renderAdminTable();
-        if(selectedCustomerIndex===ci)showFullCustomer(ci);
-    }
-    function deleteRecord(ci,ri){
-        if(!confirm('Delete record?'))return;
-        customers[ci].records.splice(ri,1);
-        if(customers[ci].records.length===0){customers.splice(ci,1);selectedCustomerIndex=null;clearSelectedCustomer();}
-        saveCustomers();renderAdminTable();
-    }
-
-    function filterCustomers(){
+    function filterCustomerList(){
         const term=document.getElementById('searchCustomer').value.trim().toUpperCase();
-        const rows=document.querySelectorAll('#customersTable tbody tr');
-        rows.forEach(r=>{
-            const tds=r.querySelectorAll('td');
-            if(tds.length<2)return;
-            const id=tds[0].innerText.toUpperCase();
-            const name=tds[1].innerText.toUpperCase();
-            r.style.display=(id.includes(term)||name.includes(term))?'':'none';
+        const lis=document.querySelectorAll('#customerList li');
+        lis.forEach(li=>{
+            const text=li.innerText.toUpperCase();
+            li.style.display=text.includes(term)?'':'none';
         });
     }
 
+    // FULL RECORDS FOR SELECTED CUSTOMER
     function showFullCustomer(ci){
         selectedCustomerIndex=ci;
         const c=customers[ci];
         document.getElementById('noCustomerSelected').classList.add('hidden');
         document.getElementById('customerDetailPanel').classList.remove('hidden');
+
         let tq=0,ta=0,tp=0;
         c.records.forEach(r=>{tq+=r.qty;ta+=r.qty*r.rate;tp+=r.paid;});
         document.getElementById('selCustName').textContent=c.name;
+        document.getElementById('selCustIdLabel').textContent='ID: '+c.id;
         document.getElementById('selCustQty').textContent=tq.toFixed(1)+' L';
         document.getElementById('selCustTotal').textContent='₹'+ta.toFixed(2);
         document.getElementById('selCustBalance').textContent='₹'+(ta-tp).toFixed(2);
+
+        const tbody=document.querySelector('#selectedCustomerTable tbody');
+        tbody.innerHTML='';
+        c.records.forEach((r,ri)=>{
+            const total=r.qty*r.rate;const bal=total-r.paid;
+            const row=tbody.insertRow();
+            row.innerHTML=`
+<td data-label="Date">${r.date}</td>
+<td data-label="Qty"><input type="number" value="${r.qty}" min="0" step="0.1" style="width:70px;" onchange="updateQty(${ci},${ri},this.value,true)"></td>
+<td data-label="Rate">₹${r.rate.toFixed(2)}</td>
+<td data-label="Total">₹${total.toFixed(2)}</td>
+<td data-label="Paid"><input type="number" value="${r.paid}" min="0" step="0.01" style="width:70px;" onchange="updatePaid(${ci},${ri},this.value,true)"></td>
+<td data-label="Balance">₹${bal.toFixed(2)}</td>
+<td data-label="Actions">
+<button class="btn btn-secondary btn-small" onclick="addRecord(${ci})">+</button>
+<button class="btn btn-danger btn-small" onclick="deleteRecord(${ci},${ri})">X</button>
+</td>`;
+        });
+
+        // show bill history for this customer
+        renderAdminBillsForCustomer(c.id);
+        lastBill=null;
+        document.getElementById('billContainer').innerHTML='<p>No bill selected.</p>';
     }
     function clearSelectedCustomer(){
         document.getElementById('customerDetailPanel').classList.add('hidden');
         document.getElementById('noCustomerSelected').classList.remove('hidden');
+        const tb=document.querySelector('#adminBillHistoryTable tbody');
+        tb.innerHTML='';
     }
 
+    function updateQty(ci,ri,val,refreshDetail=false){
+        customers[ci].records[ri].qty=parseFloat(val)||0;
+        saveCustomers();
+        if(refreshDetail)showFullCustomer(ci);
+    }
+    function updatePaid(ci,ri,val,refreshDetail=false){
+        customers[ci].records[ri].paid=parseFloat(val)||0;
+        saveCustomers();
+        if(refreshDetail)showFullCustomer(ci);
+    }
+    function addRecord(ci){
+        const today=new Date().toISOString().split('T')[0];
+        customers[ci].records.push({date:today,qty:0,rate:milkRate,paid:0});
+        saveCustomers();showFullCustomer(ci);
+    }
+    function deleteRecord(ci,ri){
+        if(!confirm('Delete record?'))return;
+        customers[ci].records.splice(ri,1);
+        if(customers[ci].records.length===0){
+            customers.splice(ci,1);
+            selectedCustomerIndex=null;
+            clearSelectedCustomer();
+            renderCustomerList();
+        }else showFullCustomer(ci);
+        saveCustomers();
+    }
+
+    // CUSTOMER VIEW
     function updateCustomerStats(c){
         let tq=0,ta=0,tp=0;
         c.records.forEach(r=>{tq+=r.qty;ta+=r.qty*r.rate;tp+=r.paid;});
@@ -650,82 +733,100 @@
         const tbody=document.querySelector('#customerRecordsTable tbody');
         tbody.innerHTML='';
         records.forEach(r=>{
-            const t=r.qty*r.rate;const b=t-r.paid;
+            const total=r.qty*r.rate;const bal=total-r.paid;
             const row=tbody.insertRow();
             row.innerHTML=`
 <td data-label="Date">${r.date}</td>
 <td data-label="Qty">${r.qty}</td>
 <td data-label="Rate">₹${r.rate.toFixed(2)}</td>
-<td data-label="Total">₹${t.toFixed(2)}</td>
+<td data-label="Total">₹${total.toFixed(2)}</td>
 <td data-label="Paid">₹${r.paid.toFixed(2)}</td>
-<td data-label="Bal">₹${b.toFixed(2)}</td>`;
+<td data-label="Balance">₹${bal.toFixed(2)}</td>`;
         });
     }
-    function saveCustomers(){localStorage.setItem('customers',JSON.stringify(customers));}
 
-    // ---------- BILL GENERATION ----------
+    function saveCustomers(){localStorage.setItem('customers',JSON.stringify(customers));}
+    function saveBills(){localStorage.setItem('bills',JSON.stringify(bills));}
+
+    // BILL GENERATION / UPDATE
     function generateBillForSelected(){
         if(selectedCustomerIndex===null){alert('Select customer first');return;}
         const c=customers[selectedCustomerIndex];
         const sd=document.getElementById('billStartDate').value;
         const ed=document.getElementById('billEndDate').value;
         if(!sd||!ed){alert('Select start and end date');return;}
-        const sDate=new Date(sd), eDate=new Date(ed);
-        if(sDate>eDate){alert('Start date should be <= end date');return;}
+        const sDate=new Date(sd),eDate=new Date(ed);
+        if(sDate>eDate){alert('Start date must be before end date');return;}
 
         const filtered=c.records.filter(r=>{
             const d=new Date(r.date);
             return d>=sDate && d<=eDate;
         });
-        if(filtered.length===0){
-            alert('No records in this date range');
-        }
+        if(filtered.length===0){alert('No records in this date range');}
 
         let tq=0,ta=0,tp=0;
         filtered.forEach(r=>{tq+=r.qty;ta+=r.qty*r.rate;tp+=r.paid;});
-        const balance=ta-tp;
+        const bal=ta-tp;
 
-        lastBill={
-            customerId:c.id,
-            customerName:c.name,
-            startDate:sd,
-            endDate:ed,
-            records:filtered,
-            totalQty:tq,
-            totalAmount:ta,
-            totalPaid:tp,
-            balance:balance
-        };
-
+        // if bill for same customer+date range exists, update it (same id)
+        let existing=bills.find(b=>b.customerId===c.id && b.startDate===sd && b.endDate===ed);
+        if(existing){
+            existing.records=filtered;
+            existing.totalQty=tq;
+            existing.totalAmount=ta;
+            existing.totalPaid=tp;
+            existing.balance=bal;
+            lastBill=existing;
+            alert('Bill updated for same date range');
+        }else{
+            const bill={
+                id:'B'+Date.now(),
+                customerId:c.id,
+                customerName:c.name,
+                startDate:sd,
+                endDate:ed,
+                records:filtered,
+                totalQty:tq,
+                totalAmount:ta,
+                totalPaid:tp,
+                balance:bal
+            };
+            bills.push(bill);
+            lastBill=bill;
+            alert('Bill generated and saved');
+        }
+        saveBills();
         renderBillHTML(lastBill,'billContainer');
-        // also update customer view if that customer is logged in
+        // if customer logged in, sync history
         if(currentUser && currentUser.id===c.id){
+            renderCustomerBills(c.id);
             renderBillHTML(lastBill,'customerBillContainer');
         }
+        // update admin bill list for that customer
+        renderAdminBillsForCustomer(c.id);
     }
 
+    // RENDER BILL HTML
     function renderBillHTML(bill,containerId){
         const div=document.getElementById(containerId);
-        if(!bill || bill.records.length===0){
-            div.innerHTML='<p>No bill generated.</p>';return;
-        }
+        if(!bill || bill.records.length===0){div.innerHTML='<p>No bill selected.</p>';return;}
         let rows='';
         bill.records.forEach(r=>{
-            const t=r.qty*r.rate;const bal=t-r.paid;
+            const t=r.qty*r.rate;const b=t-r.paid;
             rows+=`<tr>
-<td>${r.date}</td>
-<td>${r.qty}</td>
-<td>₹${r.rate.toFixed(2)}</td>
-<td>₹${t.toFixed(2)}</td>
-<td>₹${r.paid.toFixed(2)}</td>
-<td>₹${bal.toFixed(2)}</td>
+<td style="border:1px solid #ccc;padding:4px;">${r.date}</td>
+<td style="border:1px solid #ccc;padding:4px;">${r.qty}</td>
+<td style="border:1px solid #ccc;padding:4px;">₹${r.rate.toFixed(2)}</td>
+<td style="border:1px solid #ccc;padding:4px;">₹${t.toFixed(2)}</td>
+<td style="border:1px solid #ccc;padding:4px;">₹${r.paid.toFixed(2)}</td>
+<td style="border:1px solid #ccc;padding:4px;">₹${b.toFixed(2)}</td>
 </tr>`;
         });
         div.innerHTML=`
 <h3>Milk Bill</h3>
 <p><strong>Customer:</strong> ${bill.customerName} (${bill.customerId})</p>
 <p><strong>Duration:</strong> ${bill.startDate} to ${bill.endDate}</p>
-<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;">
+<table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;">
 <thead><tr style="background:#eee;">
 <th style="border:1px solid #ccc;padding:4px;">Date</th>
 <th style="border:1px solid #ccc;padding:4px;">Qty</th>
@@ -741,49 +842,125 @@
 <p><strong>Balance:</strong> ₹${bill.balance.toFixed(2)}</p>`;
     }
 
-    // ---------- DOWNLOAD: PDF / IMAGE / EXCEL ----------
+    // ADMIN SIDE BILL HISTORY (ONLY SELECTED CUSTOMER)
+    function renderAdminBillsForCustomer(customerId){
+        const tbody=document.querySelector('#adminBillHistoryTable tbody');
+        tbody.innerHTML='';
+        bills.filter(b=>b.customerId===customerId).forEach(b=>{
+            const tr=tbody.insertRow();
+            tr.innerHTML=`
+<td data-label="From">${b.startDate}</td>
+<td data-label="To">${b.endDate}</td>
+<td data-label="Qty">${b.totalQty.toFixed(1)}</td>
+<td data-label="Total">₹${b.totalAmount.toFixed(2)}</td>
+<td data-label="Paid">₹${b.totalPaid.toFixed(2)}</td>
+<td data-label="Bal">₹${b.balance.toFixed(2)}</td>
+<td data-label="Act">
+<button class="btn btn-secondary btn-small" onclick="selectBill('${b.id}','admin')">Open</button>
+<button class="btn btn-danger btn-small" onclick="deleteBill('${b.id}')">Del</button>
+</td>`;
+        });
+    }
+
+    function clearAllBillsForSelected(){
+        if(selectedCustomerIndex===null){alert('Select customer first');return;}
+        const c=customers[selectedCustomerIndex];
+        if(!confirm('Delete all bills for '+c.name+'?'))return;
+        bills=bills.filter(b=>b.customerId!==c.id);
+        saveBills();
+        renderAdminBillsForCustomer(c.id);
+        if(currentUser && currentUser.id===c.id){
+            renderCustomerBills(c.id);
+            document.getElementById('customerBillContainer').innerHTML='<p>No bill selected.</p>';
+        }
+        lastBill=null;
+        document.getElementById('billContainer').innerHTML='<p>No bill selected.</p>';
+    }
+
+    function deleteBill(id){
+        const b=bills.find(x=>x.id===id);
+        if(!b)return;
+        if(!confirm('Delete this bill?'))return;
+        bills=bills.filter(x=>x.id!==id);
+        saveBills();
+        if(selectedCustomerIndex!==null){
+            const c=customers[selectedCustomerIndex];
+            renderAdminBillsForCustomer(c.id);
+        }
+        if(currentUser && b.customerId===currentUser.id){
+            renderCustomerBills(currentUser.id);
+        }
+        if(lastBill && lastBill.id===id){
+            lastBill=null;
+            document.getElementById('billContainer').innerHTML='<p>No bill selected.</p>';
+            document.getElementById('customerBillContainer').innerHTML='<p>No bill selected.</p>';
+        }
+    }
+
+    // CUSTOMER SIDE BILL HISTORY
+    function renderCustomerBills(customerId){
+        const tbody=document.querySelector('#customerBillHistoryTable tbody');
+        tbody.innerHTML='';
+        bills.filter(b=>b.customerId===customerId).forEach(b=>{
+            const tr=tbody.insertRow();
+            tr.onclick=()=>selectBill(b.id,'customer');
+            tr.style.cursor='pointer';
+            tr.innerHTML=`
+<td data-label="From">${b.startDate}</td>
+<td data-label="To">${b.endDate}</td>
+<td data-label="Qty">${b.totalQty.toFixed(1)}</td>
+<td data-label="Total">₹${b.totalAmount.toFixed(2)}</td>
+<td data-label="Paid">₹${b.totalPaid.toFixed(2)}</td>
+<td data-label="Bal">₹${b.balance.toFixed(2)}</td>`;
+        });
+    }
+
+    // SELECT BILL (ADMIN OR CUSTOMER VIEW)
+    function selectBill(id,side){
+        const b=bills.find(x=>x.id===id);
+        if(!b)return;
+        lastBill=b;
+        if(side==='admin'){
+            renderBillHTML(b,'billContainer');
+        }else{
+            renderBillHTML(b,'customerBillContainer');
+        }
+    }
+
+    // DOWNLOAD BILL
     async function downloadBillPDF(role){
         if(!lastBill){alert('No bill to download');return;}
-        const elementId = role==='admin' ? 'billContainer' : 'customerBillContainer';
-        const element=document.getElementById(elementId);
-        const { jsPDF } = window.jspdf; // [web:21]
-        const canvas=await html2canvas(element); // [web:21][web:27]
-        const imgData=canvas.toDataURL('image/png');
+        const id=role==='admin'?'billContainer':'customerBillContainer';
+        const el=document.getElementById(id);
+        const {jsPDF}=window.jspdf;      /* [web:21] */
+        const canvas=await html2canvas(el); /* [web:27] */
+        const img=canvas.toDataURL('image/png');
         const pdf=new jsPDF('p','mm','a4');
-        const pageWidth=pdf.internal.pageSize.getWidth();
-        const pageHeight=pdf.internal.pageSize.getHeight();
-        const imgProps=pdf.getImageProperties(imgData);
-        const ratio=imgProps.height/imgProps.width;
-        const imgHeight=pageWidth*ratio;
-        pdf.addImage(imgData,'PNG',0,0,pageWidth,imgHeight);
+        const w=pdf.internal.pageSize.getWidth();
+        const props=pdf.getImageProperties(img);
+        const ratio=props.height/props.width;
+        const h=w*ratio;
+        pdf.addImage(img,'PNG',0,0,w,h);
         pdf.save(`bill_${lastBill.customerId}_${lastBill.startDate}_${lastBill.endDate}.pdf`);
     }
 
     async function downloadBillImage(role){
         if(!lastBill){alert('No bill to download');return;}
-        const elementId = role==='admin' ? 'billContainer' : 'customerBillContainer';
-        const element=document.getElementById(elementId);
-        const canvas=await html2canvas(element); // [web:27]
+        const id=role==='admin'?'billContainer':'customerBillContainer';
+        const el=document.getElementById(id);
+        const canvas=await html2canvas(el); /* [web:27] */
         const link=document.createElement('a');
         link.href=canvas.toDataURL('image/jpeg');
         link.download=`bill_${lastBill.customerId}_${lastBill.startDate}_${lastBill.endDate}.jpg`;
         link.click();
     }
 
-    function downloadBillExcel(role){
+    function downloadBillExcel(){
         if(!lastBill){alert('No bill to download');return;}
-        const data = lastBill.records.map(r=>{
+        const data=lastBill.records.map(r=>{
             const total=r.qty*r.rate;const bal=total-r.paid;
-            return {
-                Date:r.date,
-                Quantity:r.qty,
-                Rate:r.rate,
-                Total:total,
-                Paid:r.paid,
-                Balance:bal
-            };
+            return{Date:r.date,Quantity:r.qty,Rate:r.rate,Total:total,Paid:r.paid,Balance:bal};
         });
-        // add totals row
         data.push({
             Date:'TOTAL',
             Quantity:lastBill.totalQty,
@@ -792,7 +969,7 @@
             Paid:lastBill.totalPaid,
             Balance:lastBill.balance
         });
-        const ws=XLSX.utils.json_to_sheet(data); // [web:26]
+        const ws=XLSX.utils.json_to_sheet(data); /* [web:26] */
         const wb=XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb,ws,'Bill');
         XLSX.writeFile(wb,`bill_${lastBill.customerId}_${lastBill.startDate}_${lastBill.endDate}.xlsx`);
