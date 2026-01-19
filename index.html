@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milk Management System</title>
-    <!-- Libraries for PDF / Image / Excel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> <!-- PDF [web:21] -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script> <!-- Image [web:27] -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> <!-- Excel [web:26] -->
+    <title>Milk Management System (Firebase)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;}
         body{
@@ -235,14 +234,22 @@
         ::-webkit-scrollbar{width:6px;}
         ::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:3px;}
         ::-webkit-scrollbar-track{background:#f1f1f1;}
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.8);
+            display: flex; justify-content: center; align-items: center; z-index: 1000;
+            font-weight: bold; color: #4CAF50;
+        }
     </style>
 </head>
 <body>
-<!-- LOGIN -->
+
+<div id="loadingOverlay" class="loading-overlay">Connecting to Database...</div>
+
 <div id="loginScreen" class="container">
     <div class="login-container">
         <div class="login-form">
-            <h2 style="text-align:center;margin-bottom:15px;">🥛 Milk Management</h2>
+            <h2 style="text-align:center;margin-bottom:15px;">🥛 Milk Management<br><small style="font-size:12px;color:gray;">Firebase Edition</small></h2>
             <div class="role-selector">
                 <button class="role-btn active" onclick="selectRole(event,'admin')">Admin</button>
                 <button class="role-btn" onclick="selectRole(event,'customer')">Customer</button>
@@ -275,7 +282,6 @@
     </div>
 </div>
 
-<!-- ADMIN DASHBOARD -->
 <div id="adminDashboard" class="container dashboard">
     <div class="header">
         <div>
@@ -292,7 +298,7 @@
                 <label>Milk Rate (₹/L)</label>
                 <input type="number" id="milkRate" step="0.01">
                 <button class="btn btn-secondary btn-small" onclick="updateMilkRate()">Update</button>
-                <span id="currentRate" style="font-weight:600;color:#4CAF50;margin-left:6px;">₹60.00</span>
+                <span id="currentRate" style="font-weight:600;color:#4CAF50;margin-left:6px;">...</span>
             </div>
             <div style="flex:1;min-width:180px;">
                 <label>Search Customer</label>
@@ -317,13 +323,11 @@
     </div>
 
     <div class="two-column">
-        <!-- LEFT: CUSTOMER LIST -->
         <div class="section">
             <h3>Customer List</h3>
             <p style="font-size:12px;color:#555;margin-bottom:6px;">Click a customer to view and bill.</p>
             <ul id="customerList"></ul>
 
-            <!-- BILL HISTORY FOR SELECTED CUSTOMER -->
             <div class="section" style="margin-top:10px;padding:10px;">
                 <h4 style="margin-bottom:6px;">Bill History (Selected Customer)</h4>
                 <div class="flex" style="margin-bottom:6px;">
@@ -342,12 +346,10 @@
             </div>
         </div>
 
-        <!-- RIGHT: FULL DAILY + BILL -->
         <div class="section">
             <h3>Customer Records & Bill</h3>
             <div id="noCustomerSelected">Select a customer from the list.</div>
             <div id="customerDetailPanel" class="hidden">
-                <!-- summary -->
                 <div class="stats">
                     <div class="stat-card">
                         <div class="stat-number" id="selCustName">-</div>
@@ -358,7 +360,6 @@
                     <div class="stat-card"><div class="stat-number" id="selCustBalance">₹0</div><div>Balance</div></div>
                 </div>
 
-                <!-- daily records -->
                 <div class="section" style="padding:10px;margin-bottom:10px;">
                     <h4 style="margin-bottom:6px;">Daily Records</h4>
                     <div class="table-container">
@@ -373,7 +374,6 @@
                     </div>
                 </div>
 
-                <!-- bill range + generate -->
                 <div class="section" style="padding:10px;margin-bottom:10px;">
                     <h4 style="margin-bottom:6px;">Generate or Update Bill (Date Range)</h4>
                     <div class="form-row">
@@ -397,7 +397,6 @@
                     </div>
                 </div>
 
-                <!-- current bill display -->
                 <div id="billContainer">
                     <p>No bill selected.</p>
                 </div>
@@ -406,7 +405,6 @@
     </div>
 </div>
 
-<!-- CUSTOMER DASHBOARD -->
 <div id="customerDashboard" class="container dashboard">
     <div class="header">
         <div>
@@ -424,7 +422,7 @@
 
     <div class="stats">
         <div class="stat-card"><div class="stat-number" id="custMilkQty">0 L</div><div>Total Milk</div></div>
-        <div class="stat-card"><div class="stat-number" id="custRate">₹60</div><div>Current Rate</div></div>
+        <div class="stat-card"><div class="stat-number" id="custRate">₹...</div><div>Current Rate</div></div>
         <div class="stat-card"><div class="stat-number" id="custTotal">₹0</div><div>Total Amount</div></div>
         <div class="stat-card"><div class="stat-number" id="custBalance">₹0</div><div>Balance</div></div>
     </div>
@@ -466,11 +464,37 @@
     </div>
 </div>
 
-<script>
+<script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue, update, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyAvp83Rl2In-YvDsG9PDlZSbTYMJYaE_PM",
+        authDomain: "milk-management-system-f646f.firebaseapp.com",
+        databaseURL: "https://milk-management-system-f646f-default-rtdb.firebaseio.com",
+        projectId: "milk-management-system-f646f",
+        storageBucket: "milk-management-system-f646f.firebasestorage.app",
+        messagingSenderId: "634029933784",
+        appId: "1:634029933784:web:413541139c381770e7c3ad",
+        measurementId: "G-1N5DX6YJD7"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
     const defaultAdmin={username:'admin',password:'admin123'};
     const SECRET_CODE='448888';
-    let adminData=JSON.parse(localStorage.getItem('adminData'))||defaultAdmin;
 
+    // Global variables to hold data
+    let adminData = defaultAdmin;
+    let customers = [];
+    let bills = [];
+    let milkRate = 60;
+
+    // Demo data for first time initialization
     const demoCustomers=[
         {id:'CUST001',name:'Raj Kumar',password:'1111',records:[
                 {date:'2026-01-10',qty:25,rate:60,paid:1200},
@@ -481,21 +505,95 @@
         ]}
     ];
 
-    let customers=JSON.parse(localStorage.getItem('customers'))||demoCustomers;
-    let milkRate=parseFloat(localStorage.getItem('milkRate'))||60;
     let currentRole='admin';
     let currentUser=null;
     let loggedInCustomerId=null;
     let selectedCustomerIndex=null;
-
-    // bills: array of {id,customerId,customerName,startDate,endDate,records,totalQty,totalAmount,totalPaid,balance}
-    let bills=JSON.parse(localStorage.getItem('bills'))||[];
     let lastBill=null; // currently selected bill
+
+    // ===========================================
+    // FIREBASE LISTENERS (REALTIME SYNC)
+    // ===========================================
+    
+    // 1. Listen for Admin Data
+    onValue(ref(db, 'admin'), (snapshot) => {
+        const val = snapshot.val();
+        if(val) adminData = val;
+        else {
+            // Initialize if missing
+            set(ref(db, 'admin'), defaultAdmin);
+        }
+    });
+
+    // 2. Listen for Milk Rate
+    onValue(ref(db, 'settings/milkRate'), (snapshot) => {
+        const val = snapshot.val();
+        if(val) milkRate = parseFloat(val);
+        else set(ref(db, 'settings/milkRate'), 60);
+        
+        updateCurrentRateDisplay();
+        // Hide loading after first critical data load
+        document.getElementById('loadingOverlay').style.display = 'none';
+    });
+
+    // 3. Listen for Customers
+    onValue(ref(db, 'customers'), (snapshot) => {
+        const val = snapshot.val();
+        if(val) {
+            customers = val;
+        } else {
+            // Seed if empty (First run)
+            customers = demoCustomers;
+            saveCustomers();
+        }
+        
+        // Refresh UI based on current view
+        renderCustomerList();
+        if(selectedCustomerIndex !== null && customers[selectedCustomerIndex]) {
+            showFullCustomer(selectedCustomerIndex);
+        }
+        if(currentUser && currentUser !== 'admin') {
+            // If customer is logged in, refresh their view
+            const freshData = customers.find(c => c.id === currentUser.id);
+            if(freshData) {
+                currentUser = freshData;
+                updateCustomerStats(freshData);
+                renderCustomerRecords(freshData.records);
+            }
+        }
+    });
+
+    // 4. Listen for Bills
+    onValue(ref(db, 'bills'), (snapshot) => {
+        const val = snapshot.val();
+        if(val) bills = val;
+        else bills = [];
+
+        if(selectedCustomerIndex !== null) {
+            renderAdminBillsForCustomer(customers[selectedCustomerIndex].id);
+        }
+        if(currentUser && currentUser !== 'admin') {
+            renderCustomerBills(currentUser.id);
+        }
+    });
+
+
+    // ===========================================
+    // DATA PERSISTENCE FUNCTIONS
+    // ===========================================
+    function saveCustomers(){
+        set(ref(db, 'customers'), customers);
+    }
+    function saveBills(){
+        set(ref(db, 'bills'), bills);
+    }
+
+    // ===========================================
+    // UI & LOGIC FUNCTIONS
+    // ===========================================
 
     document.addEventListener('DOMContentLoaded',()=>{
         document.getElementById('loginForm').addEventListener('submit',handleLogin);
-        updateCurrentRateDisplay();
-        renderCustomerList();
         setTodayDates();
     });
 
@@ -506,7 +604,7 @@
     }
 
     // LOGIN
-    function selectRole(ev,role){
+    window.selectRole = function(ev,role){
         currentRole=role;
         document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));
         ev.target.classList.add('active');
@@ -528,6 +626,7 @@
         const u=document.getElementById('username').value.trim();
         const p=document.getElementById('password').value;
         if(currentRole==='admin'){
+            // Check against data from Firebase
             if(u===adminData.username && p===adminData.password){
                 currentUser='admin';
                 showDashboard('admin');
@@ -558,14 +657,14 @@
         document.getElementById('custNameLabel').textContent=c.name;
         document.getElementById('custIdLabel').textContent=c.id;
         updateCustomerStats(c);
-        renderCustomerRecords(c.records);
+        renderCustomerRecords(c.records || []);
         renderCustomerBills(id);
         lastBill=null;
         document.getElementById('customerBillContainer').innerHTML='<p>No bill selected.</p>';
         showDashboard('customer');
     }
 
-    function logout(){
+    window.logout = function(){
         currentUser=null;loggedInCustomerId=null;selectedCustomerIndex=null;lastBill=null;
         document.getElementById('loginScreen').style.display='block';
         document.getElementById('adminDashboard').style.display='none';
@@ -574,28 +673,30 @@
     }
 
     // ADMIN PASSWORD
-    function showAdminReset(){document.getElementById('adminResetPanel').classList.toggle('hidden');}
-    function resetAdminPassword(){
+    window.showAdminReset = function(){document.getElementById('adminResetPanel').classList.toggle('hidden');}
+    window.resetAdminPassword = function(){
         const s=document.getElementById('adminSecret').value;
         const np=document.getElementById('newAdminPass').value;
         if(s!==SECRET_CODE){alert('Wrong secret code');return;}
         if(!np){alert('Enter new password');return;}
-        adminData.password=np;
-        localStorage.setItem('adminData',JSON.stringify(adminData));
+        
+        // Update Firebase
+        set(ref(db, 'admin/password'), np);
         alert('Admin password changed');
+        
         document.getElementById('adminSecret').value='';
         document.getElementById('newAdminPass').value='';
         document.getElementById('adminResetPanel').classList.add('hidden');
     }
 
     // RATE
-    function updateMilkRate(){
+    window.updateMilkRate = function(){
         const v=parseFloat(document.getElementById('milkRate').value);
         if(!v||v<=0){alert('Enter valid rate');return;}
-        milkRate=v;
-        localStorage.setItem('milkRate',milkRate.toString());
-        updateCurrentRateDisplay();
-        alert('Milk rate updated');
+        
+        // Update Firebase
+        set(ref(db, 'settings/milkRate'), v);
+        alert('Milk rate updated in Database');
     }
     function updateCurrentRateDisplay(){
         document.getElementById('currentRate').textContent='₹'+milkRate.toFixed(2);
@@ -603,28 +704,34 @@
     }
 
     // CUSTOMER CRUD
-    function addCustomer(){
+    window.addCustomer = function(){
         const name=document.getElementById('newCustomerName').value.trim();
         const id=document.getElementById('newCustomerId').value.trim().toUpperCase();
         const pass=document.getElementById('newCustomerPass').value;
         if(!name||!id||!pass){alert('Fill all fields');return;}
         if(customers.find(c=>c.id===id)){alert('ID already exists');return;}
         const today=new Date().toISOString().split('T')[0];
-        customers.push({id,name,password:pass,records:[{date:today,qty:0,rate:milkRate,paid:0}]});
-        saveCustomers();renderCustomerList();
+        
+        // Initialize records array
+        const newC = {id,name,password:pass,records:[{date:today,qty:0,rate:milkRate,paid:0}]};
+        customers.push(newC);
+        
+        saveCustomers(); // Sync to Firebase
         document.getElementById('newCustomerName').value='';
         document.getElementById('newCustomerId').value='';
         document.getElementById('newCustomerPass').value='';
-        alert('Customer added');
+        alert('Customer added to Database');
     }
 
-    function setCustomerPassword(){
+    window.setCustomerPassword = function(){
         const id=document.getElementById('setCustId').value.trim().toUpperCase();
         const pass=document.getElementById('setCustPass').value;
         if(!id||!pass){alert('Enter ID and password');return;}
         const c=customers.find(x=>x.id===id);
         if(!c){alert('Customer not found');return;}
-        c.password=pass;saveCustomers();alert('Password updated');
+        c.password=pass;
+        saveCustomers(); // Sync to Firebase
+        alert('Password updated');
     }
 
     // CUSTOMER LIST
@@ -640,7 +747,7 @@
         filterCustomerList();
     }
 
-    function filterCustomerList(){
+    window.filterCustomerList = function(){
         const term=document.getElementById('searchCustomer').value.trim().toUpperCase();
         const lis=document.querySelectorAll('#customerList li');
         lis.forEach(li=>{
@@ -650,14 +757,18 @@
     }
 
     // FULL RECORDS FOR SELECTED CUSTOMER
-    function showFullCustomer(ci){
+    window.showFullCustomer = function(ci){
         selectedCustomerIndex=ci;
         const c=customers[ci];
+        if(!c) return;
+
         document.getElementById('noCustomerSelected').classList.add('hidden');
         document.getElementById('customerDetailPanel').classList.remove('hidden');
 
         let tq=0,ta=0,tp=0;
-        c.records.forEach(r=>{tq+=r.qty;ta+=r.qty*r.rate;tp+=r.paid;});
+        const records = c.records || [];
+        records.forEach(r=>{tq+=r.qty;ta+=r.qty*r.rate;tp+=r.paid;});
+        
         document.getElementById('selCustName').textContent=c.name;
         document.getElementById('selCustIdLabel').textContent='ID: '+c.id;
         document.getElementById('selCustQty').textContent=tq.toFixed(1)+' L';
@@ -666,7 +777,7 @@
 
         const tbody=document.querySelector('#selectedCustomerTable tbody');
         tbody.innerHTML='';
-        c.records.forEach((r,ri)=>{
+        records.forEach((r,ri)=>{
             const total=r.qty*r.rate;const bal=total-r.paid;
             const row=tbody.insertRow();
             row.innerHTML=`
@@ -687,6 +798,7 @@
         lastBill=null;
         document.getElementById('billContainer').innerHTML='<p>No bill selected.</p>';
     }
+
     function clearSelectedCustomer(){
         document.getElementById('customerDetailPanel').classList.add('hidden');
         document.getElementById('noCustomerSelected').classList.remove('hidden');
@@ -694,37 +806,42 @@
         tb.innerHTML='';
     }
 
-    function updateQty(ci,ri,val,refreshDetail=false){
+    window.updateQty = function(ci,ri,val,refreshDetail=false){
+        if(!customers[ci].records) customers[ci].records = [];
         customers[ci].records[ri].qty=parseFloat(val)||0;
         saveCustomers();
-        if(refreshDetail)showFullCustomer(ci);
+        // UI updates via Listener, but for instant feel we can call refresh
+        // Note: Listener will re-render anyway.
     }
-    function updatePaid(ci,ri,val,refreshDetail=false){
+    window.updatePaid = function(ci,ri,val,refreshDetail=false){
+        if(!customers[ci].records) customers[ci].records = [];
         customers[ci].records[ri].paid=parseFloat(val)||0;
         saveCustomers();
-        if(refreshDetail)showFullCustomer(ci);
     }
-    function addRecord(ci){
+    window.addRecord = function(ci){
         const today=new Date().toISOString().split('T')[0];
+        if(!customers[ci].records) customers[ci].records = [];
         customers[ci].records.push({date:today,qty:0,rate:milkRate,paid:0});
-        saveCustomers();showFullCustomer(ci);
+        saveCustomers();
     }
-    function deleteRecord(ci,ri){
+    window.deleteRecord = function(ci,ri){
         if(!confirm('Delete record?'))return;
         customers[ci].records.splice(ri,1);
         if(customers[ci].records.length===0){
-            customers.splice(ci,1);
-            selectedCustomerIndex=null;
-            clearSelectedCustomer();
-            renderCustomerList();
-        }else showFullCustomer(ci);
+            // If all records deleted, maybe keep customer but empty list?
+            // Existing logic deleted customer if no records, let's keep that but handle carefully
+             // customers.splice(ci,1); 
+             // selectedCustomerIndex=null;
+             // clearSelectedCustomer();
+        } 
         saveCustomers();
     }
 
     // CUSTOMER VIEW
     function updateCustomerStats(c){
         let tq=0,ta=0,tp=0;
-        c.records.forEach(r=>{tq+=r.qty;ta+=r.qty*r.rate;tp+=r.paid;});
+        const records = c.records || [];
+        records.forEach(r=>{tq+=r.qty;ta+=r.qty*r.rate;tp+=r.paid;});
         document.getElementById('custMilkQty').textContent=tq.toFixed(1)+' L';
         document.getElementById('custTotal').textContent='₹'+ta.toFixed(2);
         document.getElementById('custBalance').textContent='₹'+(ta-tp).toFixed(2);
@@ -732,6 +849,7 @@
     function renderCustomerRecords(records){
         const tbody=document.querySelector('#customerRecordsTable tbody');
         tbody.innerHTML='';
+        if(!records) return;
         records.forEach(r=>{
             const total=r.qty*r.rate;const bal=total-r.paid;
             const row=tbody.insertRow();
@@ -745,20 +863,18 @@
         });
     }
 
-    function saveCustomers(){localStorage.setItem('customers',JSON.stringify(customers));}
-    function saveBills(){localStorage.setItem('bills',JSON.stringify(bills));}
-
     // BILL GENERATION / UPDATE
-    function generateBillForSelected(){
+    window.generateBillForSelected = function(){
         if(selectedCustomerIndex===null){alert('Select customer first');return;}
         const c=customers[selectedCustomerIndex];
+        const records = c.records || [];
         const sd=document.getElementById('billStartDate').value;
         const ed=document.getElementById('billEndDate').value;
         if(!sd||!ed){alert('Select start and end date');return;}
         const sDate=new Date(sd),eDate=new Date(ed);
         if(sDate>eDate){alert('Start date must be before end date');return;}
 
-        const filtered=c.records.filter(r=>{
+        const filtered=records.filter(r=>{
             const d=new Date(r.date);
             return d>=sDate && d<=eDate;
         });
@@ -795,21 +911,14 @@
             lastBill=bill;
             alert('Bill generated and saved');
         }
-        saveBills();
+        saveBills(); // Sync to Firebase
         renderBillHTML(lastBill,'billContainer');
-        // if customer logged in, sync history
-        if(currentUser && currentUser.id===c.id){
-            renderCustomerBills(c.id);
-            renderBillHTML(lastBill,'customerBillContainer');
-        }
-        // update admin bill list for that customer
-        renderAdminBillsForCustomer(c.id);
     }
 
     // RENDER BILL HTML
     function renderBillHTML(bill,containerId){
         const div=document.getElementById(containerId);
-        if(!bill || bill.records.length===0){div.innerHTML='<p>No bill selected.</p>';return;}
+        if(!bill || !bill.records || bill.records.length===0){div.innerHTML='<p>No bill selected.</p>';return;}
         let rows='';
         bill.records.forEach(r=>{
             const t=r.qty*r.rate;const b=t-r.paid;
@@ -862,39 +971,23 @@
         });
     }
 
-    function clearAllBillsForSelected(){
+    window.clearAllBillsForSelected = function(){
         if(selectedCustomerIndex===null){alert('Select customer first');return;}
         const c=customers[selectedCustomerIndex];
         if(!confirm('Delete all bills for '+c.name+'?'))return;
         bills=bills.filter(b=>b.customerId!==c.id);
-        saveBills();
+        saveBills(); // Sync
         renderAdminBillsForCustomer(c.id);
-        if(currentUser && currentUser.id===c.id){
-            renderCustomerBills(c.id);
-            document.getElementById('customerBillContainer').innerHTML='<p>No bill selected.</p>';
-        }
         lastBill=null;
         document.getElementById('billContainer').innerHTML='<p>No bill selected.</p>';
     }
 
-    function deleteBill(id){
+    window.deleteBill = function(id){
         const b=bills.find(x=>x.id===id);
         if(!b)return;
         if(!confirm('Delete this bill?'))return;
         bills=bills.filter(x=>x.id!==id);
-        saveBills();
-        if(selectedCustomerIndex!==null){
-            const c=customers[selectedCustomerIndex];
-            renderAdminBillsForCustomer(c.id);
-        }
-        if(currentUser && b.customerId===currentUser.id){
-            renderCustomerBills(currentUser.id);
-        }
-        if(lastBill && lastBill.id===id){
-            lastBill=null;
-            document.getElementById('billContainer').innerHTML='<p>No bill selected.</p>';
-            document.getElementById('customerBillContainer').innerHTML='<p>No bill selected.</p>';
-        }
+        saveBills(); // Sync
     }
 
     // CUSTOMER SIDE BILL HISTORY
@@ -916,7 +1009,7 @@
     }
 
     // SELECT BILL (ADMIN OR CUSTOMER VIEW)
-    function selectBill(id,side){
+    window.selectBill = function(id,side){
         const b=bills.find(x=>x.id===id);
         if(!b)return;
         lastBill=b;
@@ -928,12 +1021,12 @@
     }
 
     // DOWNLOAD BILL
-    async function downloadBillPDF(role){
+    window.downloadBillPDF = async function(role){
         if(!lastBill){alert('No bill to download');return;}
         const id=role==='admin'?'billContainer':'customerBillContainer';
         const el=document.getElementById(id);
-        const {jsPDF}=window.jspdf;      /* [web:21] */
-        const canvas=await html2canvas(el); /* [web:27] */
+        const {jsPDF}=window.jspdf;
+        const canvas=await html2canvas(el);
         const img=canvas.toDataURL('image/png');
         const pdf=new jsPDF('p','mm','a4');
         const w=pdf.internal.pageSize.getWidth();
@@ -944,18 +1037,18 @@
         pdf.save(`bill_${lastBill.customerId}_${lastBill.startDate}_${lastBill.endDate}.pdf`);
     }
 
-    async function downloadBillImage(role){
+    window.downloadBillImage = async function(role){
         if(!lastBill){alert('No bill to download');return;}
         const id=role==='admin'?'billContainer':'customerBillContainer';
         const el=document.getElementById(id);
-        const canvas=await html2canvas(el); /* [web:27] */
+        const canvas=await html2canvas(el);
         const link=document.createElement('a');
         link.href=canvas.toDataURL('image/jpeg');
         link.download=`bill_${lastBill.customerId}_${lastBill.startDate}_${lastBill.endDate}.jpg`;
         link.click();
     }
 
-    function downloadBillExcel(){
+    window.downloadBillExcel = function(){
         if(!lastBill){alert('No bill to download');return;}
         const data=lastBill.records.map(r=>{
             const total=r.qty*r.rate;const bal=total-r.paid;
@@ -969,7 +1062,7 @@
             Paid:lastBill.totalPaid,
             Balance:lastBill.balance
         });
-        const ws=XLSX.utils.json_to_sheet(data); /* [web:26] */
+        const ws=XLSX.utils.json_to_sheet(data);
         const wb=XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb,ws,'Bill');
         XLSX.writeFile(wb,`bill_${lastBill.customerId}_${lastBill.startDate}_${lastBill.endDate}.xlsx`);
