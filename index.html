@@ -7,6 +7,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- ADDED: Chart.js for the Pie Graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         *{margin:0;padding:0;box-sizing:border-box;}
         body{
@@ -256,6 +259,36 @@
         #securityMsg {
             color: #d32f2f; font-size: 12px; margin-top: 5px; font-weight: bold; text-align: center;
         }
+        /* ADDED: Overview Styles */
+        .overview-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .total-box {
+            flex: 1;
+            min-width: 250px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            border-left: 5px solid #4CAF50;
+        }
+        .chart-box {
+            flex: 1;
+            min-width: 250px;
+            height: 250px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -306,6 +339,32 @@
             <small id="todayDate"></small>
         </div>
         <div class="logout" onclick="logout()">Logout</div>
+    </div>
+
+    <!-- ADDED: Business Overview Section -->
+    <div class="section">
+        <h3>Business Overview</h3>
+        <div class="overview-box">
+            <!-- Grand Total Box -->
+            <div class="total-box">
+                <h2 style="color: #333; font-size: 1.2rem; margin-bottom: 10px;">Grand Total (All Customers)</h2>
+                <div style="font-size: 2.5rem; font-weight: 800; color: #4CAF50;" id="grandTotalDisplay">₹0</div>
+                <div style="margin-top: 15px; display: flex; justify-content: space-around; border-top: 1px solid #eee; padding-top: 10px;">
+                    <div>
+                        <small style="color: #666;">Received</small><br>
+                        <span id="totalReceivedDisplay" style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">₹0</span>
+                    </div>
+                    <div>
+                        <small style="color: #666;">Pending</small><br>
+                        <span id="totalPendingDisplay" style="color: #f44336; font-weight: bold; font-size: 1.1rem;">₹0</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Pie Chart -->
+            <div class="chart-box">
+                <canvas id="paymentPieChart"></canvas>
+            </div>
+        </div>
     </div>
 
     <div class="section">
@@ -513,8 +572,8 @@
         databaseURL: "https://milk-management-system-f646f-default-rtdb.firebaseio.com",
         projectId: "milk-management-system-f646f",
         storageBucket: "milk-management-system-f646f.firebasestorage.app",
-        messagingSenderId: "634029933784",
-        appId: "1:634029933784:web:413541139c381770e7c3ad",
+        messagingSenderId: "6.34029933784e+11",
+        appId: "1:6.34029933784e+11:web:413541139c381770e7c3ad",
         measurementId: "G-1N5DX6YJD7"
     };
 
@@ -531,6 +590,9 @@
     let customers = [];
     let bills = [];
     let milkRate = 60;
+
+    // ADDED: Chart instance
+    let overviewChart = null;
 
     const demoCustomers=[
         {id:'CUST001',name:'Raj Kumar',password:'1111',records:[
@@ -585,6 +647,9 @@
         
         renderCustomerList();
         
+        // ADDED: Update the business overview chart whenever data changes
+        renderOverviewCharts();
+
         // Refresh details if open
         if(selectedCustomerIndex !== null) {
             if(customers[selectedCustomerIndex]) {
@@ -599,7 +664,7 @@
             if(freshData) {
                 currentUser = freshData;
                 updateCustomerStats(freshData);
-                renderCustomerRecords(freshData.records);
+                renderCustomerRecords(freshData.records || []);
             }
         }
     });
@@ -627,6 +692,84 @@
     }
     function saveBills(){
         set(ref(db, 'bills'), bills);
+    }
+
+    // ===========================================
+    // NEW: RENDER OVERVIEW CHARTS
+    // ===========================================
+    function renderOverviewCharts() {
+        if(currentRole !== 'admin') return;
+
+        let totalBusiness = 0;
+        let totalReceived = 0;
+
+        customers.forEach(c => {
+            if(c.records) {
+                c.records.forEach(r => {
+                    totalBusiness += (r.qty * r.rate);
+                    totalReceived += (parseFloat(r.paid) || 0);
+                });
+            }
+        });
+
+        const totalPending = totalBusiness - totalReceived;
+
+        // Update Boxes
+        document.getElementById('grandTotalDisplay').textContent = '₹' + totalBusiness.toFixed(2);
+        document.getElementById('totalReceivedDisplay').textContent = '₹' + totalReceived.toFixed(2);
+        document.getElementById('totalPendingDisplay').textContent = '₹' + totalPending.toFixed(2);
+
+        // Update Pie Chart
+        const ctx = document.getElementById('paymentPieChart').getContext('2d');
+        
+        // Destroy existing chart if it exists to avoid overlaps
+        if (overviewChart) {
+            overviewChart.destroy();
+        }
+
+        overviewChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Received Amount', 'Pending Amount'],
+                datasets: [{
+                    data: [totalReceived, totalPending],
+                    backgroundColor: [
+                        '#2196F3', // Received - Blue
+                        '#f44336'  // Pending - Red
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(context.parsed);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     // ===========================================
@@ -677,10 +820,6 @@
     function resetSecurityCounters() {
         failedAttempts = 0;
         localStorage.setItem('failedAttempts', 0);
-        // We do NOT reset currentBlockDuration here usually, to keep penalties high for repeated abuse,
-        // but if you want a successful login to "forgive" the user, uncomment below:
-        // currentBlockDuration = 20; 
-        // localStorage.setItem('currentBlockDuration', 20);
         document.getElementById('securityMsg').textContent = '';
     }
 
@@ -755,6 +894,7 @@
         document.getElementById('customerDashboard').style.display=role==='customer'?'block':'none';
         if(role==='admin'){
             renderCustomerList();
+            renderOverviewCharts(); // Render Charts on Load
             clearSelectedCustomer();
         }
     }
